@@ -1,0 +1,1183 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Haydi Empati — Odalı Empati Oyunu</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #5B8DEF;
+      --primary-dark: #3A6BC7;
+      --accent: #FF6B9D;
+      --soft-bg: #F0F4FF;
+      --card-bg: #FFFFFF;
+      --text: #2D3748;
+      --muted: #718096;
+      --success: #48BB78;
+      --warning: #ED8936;
+      --danger: #E53E3E;
+      --shadow: 0 10px 40px rgba(91, 141, 239, 0.15);
+      --radius: 20px;
+      --duygu: #F6AD55;
+      --davranis: #68D391;
+      --dusunce: #B794F4;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Nunito', system-ui, sans-serif;
+      background: linear-gradient(135deg, #E8F0FE 0%, #FCE7F3 50%, #E0F2FE 100%);
+      min-height: 100vh;
+      color: var(--text);
+      line-height: 1.5;
+    }
+    .container { max-width: 980px; margin: 0 auto; padding: 16px; }
+    header { text-align: center; padding: 24px 0 12px; }
+    .logo { display: inline-flex; align-items: center; gap: 12px; }
+    .logo-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, #5B8DEF, #FF6B9D);
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      font-size: 26px; box-shadow: var(--shadow);
+    }
+    h1 {
+      font-size: 1.9rem; font-weight: 800;
+      background: linear-gradient(90deg, #5B8DEF, #FF6B9D);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .subtitle { color: var(--muted); font-size: 0.95rem; margin-top: 4px; }
+
+    .screen { display: none; animation: fadeIn 0.35s ease; }
+    .screen.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+
+    .card {
+      background: var(--card-bg); border-radius: var(--radius);
+      box-shadow: var(--shadow); padding: 22px; margin-bottom: 16px;
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 24px; border: none; border-radius: 999px;
+      font-family: inherit; font-weight: 700; font-size: 0.95rem;
+      cursor: pointer; transition: all 0.2s; text-decoration: none;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--primary), #7B9FFF);
+      color: white; box-shadow: 0 5px 18px rgba(91,141,239,0.4);
+    }
+    .btn-primary:hover { transform: translateY(-2px); }
+    .btn-accent {
+      background: linear-gradient(135deg, var(--accent), #FF8FB8);
+      color: white; box-shadow: 0 5px 18px rgba(255,107,157,0.35);
+    }
+    .btn-outline {
+      background: white; border: 2px solid var(--primary); color: var(--primary);
+    }
+    .btn-outline:hover { background: var(--soft-bg); }
+    .btn-sm { padding: 9px 16px; font-size: 0.88rem; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+    .btn-group { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 16px; }
+
+    /* Home */
+    .home-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+    @media (max-width: 600px) { .home-actions { grid-template-columns: 1fr; } }
+    .action-card {
+      background: white; border-radius: var(--radius); padding: 28px 20px;
+      text-align: center; box-shadow: var(--shadow); cursor: pointer;
+      transition: all 0.25s; border: 3px solid transparent;
+    }
+    .action-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+    .action-card .icon { font-size: 2.6rem; margin-bottom: 10px; }
+    .action-card h3 { font-size: 1.2rem; margin-bottom: 6px; }
+    .action-card p { color: var(--muted); font-size: 0.9rem; }
+
+    .form-group { margin-bottom: 16px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; font-size: 0.92rem; }
+    input[type="text"] {
+      width: 100%; padding: 13px 16px; border: 2px solid #E2E8F0;
+      border-radius: 12px; font-family: inherit; font-size: 1.05rem; transition: border 0.2s;
+    }
+    input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(91,141,239,0.2); }
+
+    /* Lobby */
+    .room-code-display {
+      background: linear-gradient(135deg, #5B8DEF22, #FF6B9D22);
+      border-radius: 16px; padding: 18px; text-align: center; margin-bottom: 18px;
+    }
+    .room-code-display .code {
+      font-size: 2.3rem; font-weight: 800; letter-spacing: 6px;
+      color: var(--primary-dark); font-family: monospace;
+    }
+    .players-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+    .player-chip {
+      background: var(--soft-bg); padding: 7px 14px; border-radius: 999px;
+      font-weight: 600; display: flex; align-items: center; gap: 5px; font-size: 0.92rem;
+    }
+    .player-chip.host::before { content: "👑"; }
+    .player-chip.me { background: linear-gradient(135deg, #5B8DEF33, #FF6B9D33); border: 2px solid var(--primary); }
+    .player-chip.submitted { background: #C6F6D5; border-color: var(--success); }
+    .player-chip.ready { background: #C6F6D5; border: 1px solid #68D391; }
+    .btn:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+    .badge {
+      background: var(--primary); color: white; padding: 4px 12px;
+      border-radius: 999px; font-weight: 700; font-size: 0.82rem;
+    }
+
+    /* Timer */
+    .timer-bar {
+      background: white; border-radius: 16px; padding: 14px 20px;
+      box-shadow: var(--shadow); margin-bottom: 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    }
+    .timer-display {
+      font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums;
+      color: var(--primary-dark); min-width: 70px; text-align: center;
+    }
+    .timer-display.warning { color: var(--warning); }
+    .timer-display.danger { color: var(--danger); animation: pulse 0.6s infinite; }
+    @keyframes pulse { 50% { transform: scale(1.08); } }
+    .timer-progress {
+      flex: 1; height: 10px; background: #E2E8F0; border-radius: 999px; overflow: hidden;
+    }
+    .timer-progress-fill {
+      height: 100%; background: linear-gradient(90deg, var(--primary), var(--accent));
+      border-radius: 999px; transition: width 0.3s linear;
+    }
+    .timer-progress-fill.warning { background: var(--warning); }
+    .timer-progress-fill.danger { background: var(--danger); }
+
+    /* Scenario */
+    .scenario-card {
+      background: white; border-radius: var(--radius); overflow: hidden;
+      box-shadow: var(--shadow); margin-bottom: 18px;
+    }
+    .scenario-top {
+      background: linear-gradient(135deg, #E8F0FE, #FCE7F3);
+      padding: 24px 20px; text-align: center;
+    }
+    .scenario-top .illustration { font-size: 3.5rem; margin-bottom: 12px; }
+    .scenario-text {
+      font-size: 1.15rem; font-weight: 700; line-height: 1.4;
+      max-width: 620px; margin: 0 auto;
+    }
+    .scenario-bottom { padding: 20px; background: #F8FAFC; }
+    .quote {
+      text-align: center; font-style: italic; font-weight: 700;
+      color: var(--accent); font-size: 1.05rem; margin: 12px 0 8px;
+    }
+
+    /* 3N Card Selectors */
+    .n3-section { margin-bottom: 18px; }
+    .n3-section h4 {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 1.05rem; margin-bottom: 10px;
+    }
+    .n3-section h4 .tag {
+      font-size: 0.75rem; padding: 2px 10px; border-radius: 999px;
+      font-weight: 700; color: white;
+    }
+    .tag-dusunce { background: var(--dusunce); }
+    .tag-duygu { background: var(--duygu); }
+    .tag-davranis { background: var(--davranis); }
+
+    .choice-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    }
+    @media (max-width: 500px) { .choice-grid { grid-template-columns: 1fr; } }
+
+    .choice-card {
+      border: 3px solid transparent; border-radius: 14px;
+      padding: 14px 12px; text-align: center; cursor: pointer;
+      transition: all 0.2s; font-weight: 700; font-size: 0.9rem;
+      background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      user-select: none;
+    }
+    .choice-card:hover { transform: translateY(-2px); box-shadow: 0 6px 16px rgba(0,0,0,0.1); }
+    .choice-card .emoji { font-size: 1.6rem; display: block; margin-bottom: 6px; }
+    .choice-card.dusunce { border-color: #E9D8FD; }
+    .choice-card.dusunce.selected { border-color: var(--dusunce); background: #F3E8FF; box-shadow: 0 0 0 3px #E9D8FD; }
+    .choice-card.duygu { border-color: #FEEBC8; }
+    .choice-card.duygu.selected { border-color: var(--duygu); background: #FFFAF0; box-shadow: 0 0 0 3px #FEEBC8; }
+    .choice-card.davranis { border-color: #C6F6D5; }
+    .choice-card.davranis.selected { border-color: var(--davranis); background: #F0FFF4; box-shadow: 0 0 0 3px #C6F6D5; }
+    .choice-card.disabled { opacity: 0.55; pointer-events: none; }
+
+    /* Media buttons */
+    .media-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 14px 0; }
+    .media-btn {
+      background: white; border: 2px dashed #CBD5E0; border-radius: 14px;
+      padding: 12px 16px; text-align: center; cursor: pointer; transition: all 0.2s; min-width: 130px;
+    }
+    .media-btn:hover { border-color: var(--primary); background: var(--soft-bg); }
+    .media-btn .icon { font-size: 1.5rem; margin-bottom: 4px; }
+    .media-btn span { display: block; font-weight: 600; font-size: 0.85rem; }
+
+    /* Responses */
+    .response-item {
+      background: white; border-radius: 12px; padding: 14px 16px;
+      margin-bottom: 10px; border-left: 4px solid var(--primary);
+    }
+    .response-item .who { font-weight: 700; color: var(--primary-dark); font-size: 0.9rem; margin-bottom: 8px; }
+    .response-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .pill {
+      padding: 5px 12px; border-radius: 999px; font-size: 0.82rem; font-weight: 600;
+    }
+    .pill-dusunce { background: #E9D8FD; color: #553C9A; }
+    .pill-duygu { background: #FEEBC8; color: #9C4221; }
+    .pill-davranis { background: #C6F6D5; color: #276749; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+      display: none; align-items: center; justify-content: center;
+      z-index: 1000; padding: 16px;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: white; border-radius: var(--radius); max-width: 480px;
+      width: 100%; max-height: 90vh; overflow-y: auto; padding: 24px; position: relative;
+      animation: fadeIn 0.3s ease;
+    }
+    .modal h3 { margin-bottom: 12px; font-size: 1.3rem; }
+    .modal .close {
+      position: absolute; top: 12px; right: 16px; font-size: 1.5rem;
+      cursor: pointer; color: var(--muted); background: none; border: none;
+    }
+
+    .toast {
+      position: fixed; bottom: 28px; left: 50%;
+      transform: translateX(-50%) translateY(120px);
+      background: #1A202C; color: white; padding: 14px 26px;
+      border-radius: 999px; font-weight: 700; font-size: 0.95rem;
+      opacity: 0; transition: all 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+      z-index: 2000; box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      max-width: 90vw; text-align: center;
+    }
+    .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    .empty-state { text-align: center; padding: 36px 16px; color: var(--muted); }
+    .empty-state .big-icon { font-size: 3rem; margin-bottom: 10px; }
+
+    .prototype-note {
+      text-align: center; color: var(--muted); font-size: 0.8rem;
+      margin-top: 32px; padding: 12px;
+    }
+    .status-row {
+      display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+      margin-bottom: 12px; font-size: 0.88rem; color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">💜</div>
+        <div>
+          <h1>Haydi Empati</h1>
+          <p class="subtitle">Odalı Empati Kartları Oyunu</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- HOME -->
+    <div id="screen-home" class="screen active">
+      <div class="home-actions">
+        <div class="action-card" onclick="showCreateRoom()">
+          <div class="icon">🏠</div>
+          <h3>Oda Oluştur</h3>
+          <p>Yeni oda aç, arkadaşlarını davet et.</p>
+        </div>
+        <div class="action-card" onclick="showJoinRoom()">
+          <div class="icon">🚪</div>
+          <h3>Odaya Katıl</h3>
+          <p>Oda kodu ile mevcut oyuna katıl.</p>
+        </div>
+      </div>
+      <div class="card" style="margin-top:24px; text-align:center;">
+        <h3 style="margin-bottom:10px;">Nasıl Oynanır?</h3>
+        <p style="color:var(--muted); max-width:580px; margin:0 auto 14px; font-size:0.95rem;">
+          Host bir senaryo kartı çeker. Herkese <strong>45 saniye</strong> verilir.
+          Herkes Düşünce / Duygu / Davranış kartlarından birer tane seçer.
+          Süre bitince veya herkes gönderince cevaplar açılır.
+        </p>
+        <div class="btn-group">
+          <button class="btn btn-outline btn-sm" onclick="startSolo()">🎯 Tek Başına Deneme</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- CREATE -->
+    <div id="screen-create" class="screen">
+      <div class="card">
+        <h2 style="margin-bottom:18px;">🏠 Yeni Oda Oluştur</h2>
+        <div class="form-group">
+          <label>Adın / Takma Adın</label>
+          <input type="text" id="create-name" placeholder="Örn: Ayşe" maxlength="18"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();createRoom();}" />
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-outline" onclick="showScreen('home')">← Geri</button>
+          <button class="btn btn-primary" id="btn-create-room" onclick="createRoom()">Oda Oluştur</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- JOIN -->
+    <div id="screen-join" class="screen">
+      <div class="card">
+        <h2 style="margin-bottom:18px;">🚪 Odaya Katıl</h2>
+        <div class="form-group">
+          <label>Adın / Takma Adın</label>
+          <input type="text" id="join-name" placeholder="Örn: Mehmet" maxlength="18"
+                 onkeydown="if(event.key==='Enter'){document.getElementById('join-code').focus();}" />
+        </div>
+        <div class="form-group">
+          <label>Oda Kodu</label>
+          <input type="text" id="join-code" placeholder="6 haneli kod" maxlength="6"
+                 style="text-transform:uppercase; letter-spacing:4px; font-weight:700; font-size:1.25rem; text-align:center;"
+                 onkeydown="if(event.key==='Enter'){event.preventDefault();joinRoom();}" />
+        </div>
+        <div class="btn-group">
+          <button class="btn btn-outline" onclick="showScreen('home')">← Geri</button>
+          <button class="btn btn-primary" onclick="joinRoom()">Katıl</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOBBY -->
+    <div id="screen-lobby" class="screen">
+      <div class="room-code-display">
+        <div style="font-size:0.85rem; color:var(--muted); margin-bottom:4px;">ODA KODU</div>
+        <div class="code" id="lobby-code">------</div>
+        <div style="margin-top:10px;">
+          <button class="btn btn-sm btn-outline" onclick="copyCode()">📋 Kodu Kopyala</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Oyuncular <span id="player-count" class="badge">1</span></h3>
+        <div class="players-list" id="players-list"></div>
+        <p id="ready-status" style="color:var(--muted); font-size:0.9rem; margin-top:10px;"></p>
+        <div class="btn-group" style="margin-top:14px;">
+          <button class="btn btn-outline" onclick="leaveRoom()">Odadan Ayrıl</button>
+          <button class="btn btn-outline" id="btn-ready" onclick="toggleReady()">✋ Hazırım</button>
+          <button class="btn btn-primary" id="btn-start-game" onclick="startGame()" style="display:none;" disabled>🚀 Oyunu Başlat</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME -->
+    <div id="screen-game" class="screen">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px;">
+        <div>
+          <span class="badge" id="game-room-code">ODA</span>
+          <span style="margin-left:8px; color:var(--muted); font-size:0.88rem;" id="game-player-info"></span>
+        </div>
+        <div>
+          <button class="btn btn-sm btn-outline" onclick="drawNewCard()" id="btn-draw" style="display:none;">🃏 Yeni Kart</button>
+          <button class="btn btn-sm btn-outline" onclick="leaveRoom()" style="margin-left:6px;">Çık</button>
+        </div>
+      </div>
+
+      <!-- TIMER -->
+      <div class="timer-bar" id="timer-bar" style="display:none;">
+        <div class="timer-display" id="timer-display">0:45</div>
+        <div class="timer-progress">
+          <div class="timer-progress-fill" id="timer-fill" style="width:100%;"></div>
+        </div>
+        <div style="font-size:0.85rem; color:var(--muted); min-width:80px; text-align:right;" id="timer-status">Hazır</div>
+      </div>
+
+      <div id="no-card" class="empty-state card">
+        <div class="big-icon">🃏</div>
+        <h3>Henüz kart çekilmedi</h3>
+        <p>Host “Yeni Kart” butonuna bassın. Herkese 45 saniye verilecek.</p>
+      </div>
+
+      <div id="card-area" style="display:none;">
+        <div class="scenario-card">
+          <div class="scenario-top">
+            <div class="illustration" id="card-emoji">💭</div>
+            <div class="scenario-text" id="scenario-text">Senaryo burada</div>
+          </div>
+          <div class="scenario-bottom">
+            <div class="quote">“BEN OLSAM DEĞİL, O OLSAYDI NE HİSSEDERDİ?”</div>
+            <div class="media-actions">
+              <div class="media-btn" onclick="openVideoModal()">
+                <div class="icon">🎬</div>
+                <span>Senaryo Videosu</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SELECTION AREA -->
+        <div class="card" id="selection-area">
+          <div class="status-row">
+            <span id="submit-status">Kartlarını seç (her kategoriden 1 tane)</span>
+          </div>
+
+          <!-- Düşünce -->
+          <div class="n3-section">
+            <h4>🧠 Ne Düşünürüm? <span class="tag tag-dusunce">Düşünce Kartı</span></h4>
+            <div class="choice-grid" id="choices-dusunce"></div>
+          </div>
+
+          <!-- Duygu -->
+          <div class="n3-section">
+            <h4>❤️ Ne Hissederim? <span class="tag tag-duygu">Duygu Kartı</span></h4>
+            <div class="choice-grid" id="choices-duygu"></div>
+          </div>
+
+          <!-- Davranış -->
+          <div class="n3-section">
+            <h4>🤝 Ne Yaparım? <span class="tag tag-davranis">Davranış Kartı</span></h4>
+            <div class="choice-grid" id="choices-davranis"></div>
+          </div>
+
+          <div class="btn-group">
+            <button class="btn btn-primary" id="btn-submit" onclick="submitAnswer()">Cevabımı Gönder</button>
+          </div>
+        </div>
+
+        <!-- RESULTS -->
+        <div id="responses-area" class="card" style="display:none;">
+          <h3 style="margin-bottom:12px;">Cevaplar</h3>
+          <div id="responses-list"></div>
+          <div class="btn-group" style="margin-top:16px;" id="host-next-area">
+            <button class="btn btn-accent" onclick="drawNewCard()" id="btn-next-card" style="display:none;">🃏 Sonraki Kart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modals -->
+  <div class="modal-overlay" id="modal-video">
+    <div class="modal">
+      <button class="close" onclick="closeModals()">×</button>
+      <h3>🎬 Senaryo Videosu</h3>
+      <p style="color:var(--muted); margin-bottom:14px;">
+        Orijinal kartlarda QR kod ile video açılır. Bu prototipte video henüz bağlı değil.
+      </p>
+      <div style="background:#F7FAFC; border-radius:12px; padding:36px; text-align:center;">
+        <div style="font-size:2.8rem;">📹</div>
+        <p>Video yakında eklenecek.</p>
+      </div>
+      <div class="btn-group" style="margin-top:16px;">
+        <button class="btn btn-primary" onclick="closeModals()">Kapat</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <div class="prototype-note">
+    <strong>Çok oyunculu:</strong> Node.js + Socket.io — farklı cihazlardan aynı odaya katılabilirsiniz.
+    45 sn süre · 3N kart seçimi · Puan sistemi
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    // ========== 3N KARTLARI ==========
+    const DUSUNCE = [
+      { id: 'd1', text: 'ANLAŞILMAK İSTİYORUM', emoji: '👍' },
+      { id: 'd2', text: 'KENDİMİ KORUMALIYIM', emoji: '🛡️' },
+      { id: 'd3', text: 'ADİL DEĞİL', emoji: '⚖️' },
+      { id: 'd4', text: 'ÇÖZÜM BULMALIYIM, DESTEK ALMALIYIM', emoji: '🤝' }
+    ];
+    const DUYGU = [
+      { id: 'e1', text: 'MUTLULUK / NEŞE', emoji: '😄' },
+      { id: 'e2', text: 'ÜZÜNTÜ / ŞAŞKINLIK', emoji: '😢' },
+      { id: 'e3', text: 'ÖFKE / KORKU', emoji: '😠' },
+      { id: 'e4', text: 'TİKSİNME', emoji: '🤢' }
+    ];
+    const DAVRANIS = [
+      { id: 'b1', text: 'KONUŞURUM', emoji: '💬' },
+      { id: 'b2', text: 'TEPKİ GÖSTERİRİM / İTİRAZ EDERİM', emoji: '🔥' },
+      { id: 'b3', text: 'YARDIM İSTERİM', emoji: '🆘' },
+      { id: 'b4', text: 'UMURSAMAM / UZAKLAŞIRIM', emoji: '🚶' }
+    ];
+
+    // ========== SCENARIOS (37) + örnek doğru 3N ==========
+    // correct: { dusunce, duygu, davranis } id'leri
+    const SCENARIOS = [
+      { id:1, text:"Yedinci sınıf öğrencileri okul bahçesinde oynarken erkek öğrencilerden biri birden yere düştü.", emoji:"😱", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:2, text:"İlkokul ikinci sınıf oyuncak gününde kız öğrencilerden birinin elinden oyuncağı düşerek kırıldı.", emoji:"🚀", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:3, text:"Öğretmen sınıfa girdiğinde sınıfta iki kız arkadaş kavga ediyordu, öğretmen sınıfta öğrencileri sert şekilde uyardı.", emoji:"👩‍🏫", correct:{dusunce:'d2', duygu:'e3', davranis:'b4'} },
+      { id:4, text:"Altıncı Sınıf bir erkek öğrenci teneffüste kız arkadaşıyla görünüşü ile ilgili alay etti.", emoji:"😔", correct:{dusunce:'d3', duygu:'e2', davranis:'b2'} },
+      { id:5, text:"On yaşında bir kız öğrenci sınıfta üzgün bir şekilde oturuyordu.", emoji:"😢", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:6, text:"Sekiz Yaşında bir erkek öğrenci arkadaşları ile sokakta oyun oynarken pantolonu yırtıldı.", emoji:"👖", correct:{dusunce:'d2', duygu:'e2', davranis:'b1'} },
+      { id:7, text:"Sekizinci sınıf bir kız öğrenci okul tiyatrosunda hıçkırıktan repliğini okuyamadı.", emoji:"🎭", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:8, text:"Sekizinci sınıf erkek bir öğrenci okul denemesinde çok fazla soruyu yanlış çözdüğünü öğrendi.", emoji:"📝", correct:{dusunce:'d4', duygu:'e2', davranis:'b1'} },
+      { id:9, text:"Onsekiz yaşında bir genç eve giderken karşıdan karşıya geçemeyen ve uzun süredir bekleyen yaşlı bir kadın gördü.", emoji:"👵", correct:{dusunce:'d4', duygu:'e1', davranis:'b3'} },
+      { id:10, text:"Onbeş yaşında bir kız markette dondurma alamadığı için ağlayan bir çocuk gördü.", emoji:"🍦", correct:{dusunce:'d1', duygu:'e2', davranis:'b3'} },
+      { id:11, text:"Dördüncü sınıfta bir kız öğrenci çok eğlendiği okul gezi fotoğrafında yer almadığını gördü.", emoji:"📸", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:12, text:"İlkokul öğrencileri okul bahçesinde oynarken arkadaşlarından birinin köşede uzun süredir tek başına oturduğunu gördü.", emoji:"🪑", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:13, text:"Yetmiş yaşında bir adam pazar poşetlerini taşımakta zorlanıyor.", emoji:"🛒", correct:{dusunce:'d4', duygu:'e1', davranis:'b3'} },
+      { id:14, text:"Ondört yaşında bir kızın arkadaşlarıyla dışarı çıkmasına ailesi izin vermedi.", emoji:"🏠", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:15, text:"Onüç yaşında bir kız öğrenci proje ödevini tamamlayamadı.", emoji:"📚", correct:{dusunce:'d4', duygu:'e2', davranis:'b3'} },
+      { id:16, text:"Bir kadın iş yerinde önemli bir raporun teslim tarihini kaçırdı.", emoji:"💼", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:17, text:"Otuz yaşında bir erkek ofiste arkadaşları ile konuşurken önemli belgelerinin üzerine kahve döktü.", emoji:"☕", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:18, text:"Dokuzuncu sınıf erkek bir öğrenci sınıfa yeni geldi ve sınıf arkadaşları tarafından alay ediliyor.", emoji:"👉", correct:{dusunce:'d3', duygu:'e3', davranis:'b2'} },
+      { id:19, text:"On yaşında bir kızın anne ve babası yalnızca küçük kardeşe hediye aldı.", emoji:"🎁", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:20, text:"Onsekiz yaşında bir genci kimse dinlemiyordu konuşurken sözü kesiliyor, anlattıkları ile kimse ilgilenmiyordu.", emoji:"🗣️", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:21, text:"Sekiz yaşında kız çocuğu kimseyi dinlemiyor, annesinin söylediklerini anlamıyor, istediği olana kadar ağlıyordu.", emoji:"😭", correct:{dusunce:'d4', duygu:'e2', davranis:'b1'} },
+      { id:22, text:"İşten yorgun gelen kadın sokaktaki yüksek seslerden ve gürültüden uyuyamadı.", emoji:"😴", correct:{dusunce:'d2', duygu:'e3', davranis:'b4'} },
+      { id:23, text:"Atmış Beş yaşındaki kadın evde yalnız iken banyoda ayağı kaydı ve düştü.", emoji:"🛁", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:24, text:"On yaşındaki kız çocuğunun ebeveynleri evden çıkarken kapıyı çocuklarının üzerine kilitledi.", emoji:"🔒", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:25, text:"Yirmi Yedi yaşındaki yabancı kadın bir göçmen ülkeye alışmaya çalışıyor.", emoji:"🧳", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:26, text:"Yedinci sınıf öğrencileri öğretmeni oyalayarak dersi kaynatıyorlar.", emoji:"😜", correct:{dusunce:'d3', duygu:'e3', davranis:'b2'} },
+      { id:27, text:"Üçüncü sınıf öğrencileri beslenme saatinde kız arkadaşlarının yemek getirmediğini fark ettiler.", emoji:"🍱", correct:{dusunce:'d4', duygu:'e2', davranis:'b3'} },
+      { id:28, text:"On sekiz yaşındaki genç telefonunun şarjı bittiği için otobüsü kaçırdığını ailesine haber veremedi.", emoji:"🔋", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:29, text:"Otobüste yüksek sesle konuşan on yaşlarındaki işitme yetersizliği olan çocuğa yolculardan biri sinirlenir.", emoji:"📢", correct:{dusunce:'d3', duygu:'e3', davranis:'b2'} },
+      { id:30, text:"Kırk beş yaşındaki kadın evinin merdivenlerinden çıkarken düştü.", emoji:"🪜", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:31, text:"Ondört yaşındaki bir erkek çocuğunun kardeşi dünyaya geldi.", emoji:"👶", correct:{dusunce:'d1', duygu:'e1', davranis:'b1'} },
+      { id:32, text:"Dokuz yaşındaki bir erkek çocuğun yeni aldığı ayakkabısı top oynarken yırtılıyor.", emoji:"👟", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:33, text:"Altı yaşında bir kız çocuğu dondurmasını yere düşürdü.", emoji:"🍦", correct:{dusunce:'d1', duygu:'e2', davranis:'b3'} },
+      { id:34, text:"Otuz beş yaşındaki kadın ütü yaparken sevdiği kıyafetini yakıyor.", emoji:"👗", correct:{dusunce:'d1', duygu:'e2', davranis:'b1'} },
+      { id:35, text:"Ondört yaşında bir erkek öğrenci okula yetişmek için hızlı hazırlanırken ayağına farklı ayakkabılar giydi.", emoji:"👞", correct:{dusunce:'d2', duygu:'e2', davranis:'b1'} },
+      { id:36, text:"Otuzüç yaşında bir kadının kuaförde saçı yanıyor.", emoji:"💇‍♀️", correct:{dusunce:'d4', duygu:'e3', davranis:'b3'} },
+      { id:37, text:"28 yaşında bir erkek uzun gelen pantolonu kısaltmak için terziye veriyor, terzi pantolonu fazla kısaltıyor ve pantolon giyilemeyecek hale geliyor.", emoji:"✂️", correct:{dusunce:'d3', duygu:'e3', davranis:'b2'} }
+    ];
+
+    const ROUND_SECONDS = 45;
+
+    // ========== STATE ==========
+    let state = {
+      screen: 'home',
+      playerName: '',
+      roomCode: '',
+      isHost: false,
+      players: [],
+      currentCard: null,
+      answers: {},
+      usedCards: [],
+      selections: { dusunce: null, duygu: null, davranis: null },
+      phase: 'idle',
+      timerEnd: 0,
+      lastRoundScores: {}
+    };
+
+    let socket = null;
+    let timerInterval = null;
+
+    // ========== UTILS ==========
+    function showToast(msg) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.classList.add('show');
+      setTimeout(() => t.classList.remove('show'), 2800);
+    }
+
+    function showScreen(name) {
+      document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+      const el = document.getElementById('screen-' + name);
+      if (el) el.classList.add('active');
+      state.screen = name;
+    }
+
+    function findCard(list, id) {
+      return list.find(c => c.id === id) || null;
+    }
+
+    function applyServerState(s) {
+      if (!s) return;
+      state.roomCode = s.code || state.roomCode;
+      state.players = s.players || state.players;
+      state.currentCard = s.currentCard;
+      state.usedCards = s.usedCards || [];
+      state.phase = s.phase || 'idle';
+      state.timerEnd = s.timerEnd || 0;
+      state.answers = s.answers || {};
+      state.lastRoundScores = s.lastRoundScores || {};
+      const me = state.players.find(p => p.name === state.playerName);
+      state.isHost = me ? !!me.isHost : state.isHost;
+    }
+
+    // ========== SOCKET.IO ==========
+    function ensureSocket() {
+      if (socket && socket.connected) return socket;
+      socket = io({ transports: ['websocket', 'polling'] });
+
+      socket.on('connect', () => console.log('Socket bağlandı', socket.id));
+      socket.on('disconnect', () => showToast('Bağlantı koptu, yeniden deneniyor...'));
+
+      socket.on('room-state', (s) => {
+        applyServerState(s);
+        if (state.screen === 'lobby') updateLobbyUI();
+        if (state.screen === 'game') updateGameUI();
+      });
+
+      socket.on('game-started', (s) => {
+        applyServerState(s);
+        state.currentCard = null;
+        state.phase = 'idle';
+        showScreen('game');
+        updateGameUI();
+      });
+
+      socket.on('round-start', (payload) => {
+        applyServerState(payload.state);
+        state.currentCard = payload.card;
+        state.timerEnd = payload.timerEnd;
+        state.phase = 'selecting';
+        state.answers = {};
+        state.selections = { dusunce: null, duygu: null, davranis: null };
+        state.players.forEach(p => p.submitted = false);
+        updateGameUI();
+        renderChoices();
+        startLocalTimer();
+        showToast('Yeni kart! 45 saniye başladı');
+      });
+
+      socket.on('answer-received', (payload) => {
+        if (payload.state) applyServerState(payload.state);
+        state.answers[payload.name] = payload.answer;
+        const p = state.players.find(x => x.name === payload.name);
+        if (p) p.submitted = true;
+        updateSubmitStatus();
+        if (state.isHost && allSubmitted()) revealRound();
+      });
+
+      socket.on('all-submitted', (payload) => {
+        if (payload.state) applyServerState(payload.state);
+        if (state.isHost) revealRound();
+      });
+
+      socket.on('round-revealed', (payload) => {
+        if (payload.state) applyServerState(payload.state);
+        state.answers = payload.answers || state.answers;
+        state.lastRoundScores = payload.lastRoundScores || {};
+        state.phase = 'revealed';
+        stopTimer();
+        showResults();
+        updateGameUI();
+      });
+
+      socket.on('player-left', (payload) => {
+        if (payload.state) applyServerState(payload.state);
+        if (state.screen === 'lobby') updateLobbyUI();
+        if (payload.name) showToast(payload.name + ' ayrıldı');
+      });
+
+      return socket;
+    }
+
+    // ========== TIMER ==========
+    function startLocalTimer() {
+      stopTimer();
+      const bar = document.getElementById('timer-bar');
+      bar.style.display = 'flex';
+      updateTimerUI();
+      timerInterval = setInterval(() => {
+        const left = Math.max(0, Math.ceil((state.timerEnd - Date.now()) / 1000));
+        updateTimerUI();
+        if (left <= 0) {
+          stopTimer();
+          if (state.phase === 'selecting') {
+            // Auto submit current selection if any, then reveal
+            if (state.selections.dusunce || state.selections.duygu || state.selections.davranis) {
+              if (!state.answers[state.playerName]) submitAnswer(true);
+            }
+            if (state.isHost || state.roomCode === 'SOLO') {
+              setTimeout(() => revealRound(), 400);
+            }
+          }
+        }
+      }, 250);
+    }
+
+    function stopTimer() {
+      if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+    }
+
+    function updateTimerUI() {
+      const left = Math.max(0, Math.ceil((state.timerEnd - Date.now()) / 1000));
+      const m = Math.floor(left / 60);
+      const s = left % 60;
+      const disp = document.getElementById('timer-display');
+      const fill = document.getElementById('timer-fill');
+      const status = document.getElementById('timer-status');
+      disp.textContent = m + ':' + String(s).padStart(2, '0');
+      const pct = (left / ROUND_SECONDS) * 100;
+      fill.style.width = pct + '%';
+
+      disp.classList.remove('warning', 'danger');
+      fill.classList.remove('warning', 'danger');
+      if (left <= 10) {
+        disp.classList.add('danger');
+        fill.classList.add('danger');
+        status.textContent = 'Acele et!';
+      } else if (left <= 20) {
+        disp.classList.add('warning');
+        fill.classList.add('warning');
+        status.textContent = 'Son saniyeler';
+      } else {
+        status.textContent = state.phase === 'selecting' ? 'Seçim yap' : 'Bitti';
+      }
+    }
+
+    // ========== UI RENDER ==========
+    function renderChoices() {
+      const make = (list, containerId, type) => {
+        const el = document.getElementById(containerId);
+        el.innerHTML = list.map(c => `
+          <div class="choice-card ${type}" data-id="${c.id}" data-type="${type}" onclick="selectChoice('${type}','${c.id}')">
+            <span class="emoji">${c.emoji}</span>
+            ${c.text}
+          </div>
+        `).join('');
+      };
+      make(DUSUNCE, 'choices-dusunce', 'dusunce');
+      make(DUYGU, 'choices-duygu', 'duygu');
+      make(DAVRANIS, 'choices-davranis', 'davranis');
+
+      // restore selection highlights
+      ['dusunce','duygu','davranis'].forEach(type => {
+        if (state.selections[type]) {
+          const card = document.querySelector(`.choice-card[data-type="${type}"][data-id="${state.selections[type]}"]`);
+          if (card) card.classList.add('selected');
+        }
+      });
+    }
+
+    function selectChoice(type, id) {
+      if (state.phase !== 'selecting') return;
+      if (state.answers[state.playerName]) return; // already submitted
+
+      state.selections[type] = id;
+      // visual
+      document.querySelectorAll(`.choice-card[data-type="${type}"]`).forEach(c => c.classList.remove('selected'));
+      const el = document.querySelector(`.choice-card[data-type="${type}"][data-id="${id}"]`);
+      if (el) el.classList.add('selected');
+    }
+
+    function updateSubmitStatus() {
+      const submittedCount = state.players.filter(p => p.submitted || state.answers[p.name]).length;
+      const total = state.players.length || 1;
+      const el = document.getElementById('submit-status');
+      if (el) el.textContent = `Gönderen: ${submittedCount}/${total}  •  Her kategoriden 1 kart seç`;
+    }
+
+    function allSubmitted() {
+      return state.players.every(p => p.submitted || state.answers[p.name]);
+    }
+
+    // ========== ACTIONS ==========
+    function showCreateRoom() {
+      showScreen('create');
+      setTimeout(() => document.getElementById('create-name').focus(), 100);
+    }
+    function showJoinRoom() {
+      showScreen('join');
+      setTimeout(() => document.getElementById('join-name').focus(), 100);
+    }
+
+    function createRoom() {
+      const input = document.getElementById('create-name');
+      const name = (input.value || '').trim();
+      if (!name) {
+        showToast('Lütfen adını gir');
+        input.focus();
+        input.style.borderColor = '#E53E3E';
+        setTimeout(() => input.style.borderColor = '', 1500);
+        return;
+      }
+      ensureSocket().emit('create-room', { name }, (res) => {
+        if (!res || !res.ok) {
+          showToast(res?.error || 'Oda oluşturulamadı');
+          return;
+        }
+        state.playerName = name;
+        state.isHost = true;
+        applyServerState(res.state);
+        showScreen('lobby');
+        updateLobbyUI();
+        showToast('Oda oluşturuldu! Kod: ' + state.roomCode);
+      });
+    }
+
+    function joinRoom() {
+      const name = (document.getElementById('join-name').value || '').trim();
+      const code = (document.getElementById('join-code').value || '').trim().toUpperCase();
+      if (!name) { showToast('Lütfen adını gir'); return; }
+      if (!code || code.length < 4) { showToast('Geçerli oda kodu gir'); return; }
+      ensureSocket().emit('join-room', { code, name }, (res) => {
+        if (!res || !res.ok) {
+          showToast(res?.error || 'Katılınamadı');
+          return;
+        }
+        state.playerName = name;
+        state.isHost = false;
+        applyServerState(res.state);
+        showScreen('lobby');
+        updateLobbyUI();
+        showToast('Odaya katıldın!');
+      });
+    }
+
+    function startSolo() {
+      state.playerName = 'Sen';
+      state.roomCode = 'SOLO';
+      state.isHost = true;
+      state.players = [{ name: 'Sen', isHost: true, submitted: false, score: 0 }];
+      state.currentCard = null;
+      state.answers = {};
+      state.usedCards = [];
+      state.phase = 'idle';
+      state.lastRoundScores = {};
+      showScreen('game');
+      updateGameUI();
+      showToast('Tek kişilik mod (sunucusuz)');
+    }
+
+    function leaveRoom() {
+      stopTimer();
+      if (socket && state.roomCode && state.roomCode !== 'SOLO') {
+        socket.emit('leave-room');
+      }
+      state.roomCode = '';
+      state.isHost = false;
+      state.players = [];
+      state.currentCard = null;
+      state.phase = 'idle';
+      showScreen('home');
+    }
+
+    function updateLobbyUI() {
+      document.getElementById('lobby-code').textContent = state.roomCode;
+      document.getElementById('player-count').textContent = state.players.length;
+      const list = document.getElementById('players-list');
+      const sorted = [...state.players].sort((a,b) => (b.score||0) - (a.score||0));
+      list.innerHTML = sorted.map(p => {
+        const cls = ['player-chip'];
+        if (p.isHost) cls.push('host');
+        if (p.name === state.playerName) cls.push('me');
+        if (p.ready) cls.push('ready');
+        const readyMark = p.ready ? ' ✓' : '';
+        return `<div class="${cls.join(' ')}">${p.name}${readyMark} <span style="opacity:0.75;font-size:0.85em;">(${p.score||0}p)</span></div>`;
+      }).join('');
+
+      const me = state.players.find(p => p.name === state.playerName);
+      const myReady = me ? !!me.ready : false;
+      const readyCount = state.players.filter(p => p.ready).length;
+      const total = state.players.length;
+      const allReady = total > 0 && readyCount === total;
+
+      const btnReady = document.getElementById('btn-ready');
+      if (btnReady) {
+        btnReady.textContent = myReady ? '✅ Hazır (geri al)' : '✋ Hazırım';
+        btnReady.className = myReady ? 'btn btn-primary' : 'btn btn-outline';
+      }
+
+      const status = document.getElementById('ready-status');
+      if (status) {
+        if (allReady) {
+          status.innerHTML = '<strong style="color:#276749;">Herkes hazır!</strong> Host oyunu başlatabilir.';
+        } else {
+          status.textContent = `Hazır: ${readyCount}/${total} — Herkes “Hazırım” demeli.`;
+        }
+      }
+
+      const btnStart = document.getElementById('btn-start-game');
+      if (btnStart) {
+        btnStart.style.display = state.isHost ? 'inline-flex' : 'none';
+        btnStart.disabled = !allReady;
+      }
+    }
+
+    function toggleReady() {
+      if (!state.roomCode || state.roomCode === 'SOLO') return;
+      ensureSocket().emit('toggle-ready', (res) => {
+        if (res && !res.ok) {
+          showToast(res.error || 'Hazır durumu güncellenemedi');
+          return;
+        }
+        if (res && res.state) applyServerState(res.state);
+        updateLobbyUI();
+      });
+    }
+
+    function calcPoints(matches) {
+      if (matches >= 3) return 2;  // 3/3 = 2 puan
+      if (matches === 2) return 1;  // 2/3 = 1 puan
+      if (matches === 1) return 0;  // 1/3 = 0 puan
+      return -1;                    // 0/3 = -1 puan (toplam 0'ın altına düşmez)
+    }
+
+    function applyScore(playerName, points) {
+      const p = state.players.find(x => x.name === playerName);
+      if (!p) return;
+      let next = (p.score || 0) + points;
+      if (next < 0) next = 0; // asla 0'ın altına düşmesin
+      p.score = next;
+    }
+
+    function scoreRound() {
+      if (!state.currentCard || !state.currentCard.correct) return;
+      const corr = state.currentCard.correct;
+      state.lastRoundScores = {};
+      Object.keys(state.answers).forEach(name => {
+        const a = state.answers[name];
+        let matches = 0;
+        if (a.dusunce && a.dusunce.id === corr.dusunce) matches++;
+        if (a.duygu && a.duygu.id === corr.duygu) matches++;
+        if (a.davranis && a.davranis.id === corr.davranis) matches++;
+        const points = calcPoints(matches);
+        applyScore(name, points);
+        state.lastRoundScores[name] = { matches, points };
+      });
+    }
+
+    function startGame() {
+      if (!state.isHost) return;
+      if (state.roomCode === 'SOLO') {
+        showScreen('game');
+        updateGameUI();
+        return;
+      }
+      const allReady = state.players.length > 0 && state.players.every(p => p.ready);
+      if (!allReady) {
+        showToast('Herkes hazır olmalı');
+        return;
+      }
+      ensureSocket().emit('start-game', (res) => {
+        if (res && !res.ok) {
+          showToast(res.error || 'Başlatılamadı');
+          return;
+        }
+        // game-started event will switch screen for everyone
+      });
+    }
+
+    function drawNewCard() {
+      if (!state.isHost && state.roomCode !== 'SOLO') {
+        showToast('Sadece host kart çekebilir');
+        return;
+      }
+      let pool = SCENARIOS.filter(s => !state.usedCards.includes(s.id));
+      if (pool.length === 0) {
+        state.usedCards = [];
+        pool = SCENARIOS;
+      }
+      const card = pool[Math.floor(Math.random() * pool.length)];
+      state.currentCard = card;
+      state.usedCards.push(card.id);
+      state.answers = {};
+      state.selections = { dusunce: null, duygu: null, davranis: null };
+      state.phase = 'selecting';
+      state.timerEnd = Date.now() + ROUND_SECONDS * 1000;
+      state.players.forEach(p => p.submitted = false);
+
+      if (state.roomCode === 'SOLO') {
+        updateGameUI();
+        renderChoices();
+        startLocalTimer();
+        showToast('Yeni kart! 45 saniye');
+        return;
+      }
+
+      ensureSocket().emit('draw-card', {
+        card,
+        usedCards: state.usedCards,
+        timerEnd: state.timerEnd
+      }, (res) => {
+        if (res && !res.ok) showToast(res.error || 'Kart çekilemedi');
+      });
+      // round-start event updates all clients
+    }
+
+    function updateGameUI() {
+      document.getElementById('game-room-code').textContent = state.roomCode;
+      document.getElementById('game-player-info').textContent =
+        state.playerName + (state.isHost ? ' (Host)' : '');
+
+      const noCard = document.getElementById('no-card');
+      const cardArea = document.getElementById('card-area');
+      const timerBar = document.getElementById('timer-bar');
+      const btnDraw = document.getElementById('btn-draw');
+      const btnNext = document.getElementById('btn-next-card');
+      const selectionArea = document.getElementById('selection-area');
+      const responsesArea = document.getElementById('responses-area');
+
+      btnDraw.style.display = (state.isHost || state.roomCode === 'SOLO') ? 'inline-flex' : 'none';
+      btnNext.style.display = (state.isHost || state.roomCode === 'SOLO') && state.phase === 'revealed' ? 'inline-flex' : 'none';
+
+      if (!state.currentCard) {
+        noCard.style.display = 'block';
+        cardArea.style.display = 'none';
+        timerBar.style.display = 'none';
+        return;
+      }
+
+      noCard.style.display = 'none';
+      cardArea.style.display = 'block';
+      document.getElementById('scenario-text').textContent = state.currentCard.text;
+      document.getElementById('card-emoji').textContent = state.currentCard.emoji || '💭';
+
+      if (state.phase === 'selecting') {
+        selectionArea.style.display = 'block';
+        responsesArea.style.display = 'none';
+        timerBar.style.display = 'flex';
+        // disable submit button if already submitted
+        const submitted = !!state.answers[state.playerName];
+        document.getElementById('btn-submit').disabled = submitted;
+        document.getElementById('btn-submit').textContent = submitted ? '✓ Gönderildi' : 'Cevabımı Gönder';
+        updateSubmitStatus();
+      } else if (state.phase === 'revealed') {
+        selectionArea.style.display = 'none';
+        responsesArea.style.display = 'block';
+        timerBar.style.display = 'none';
+        showResults();
+      }
+    }
+
+    function submitAnswer(silent) {
+      if (state.phase !== 'selecting') return;
+      const { dusunce, duygu, davranis } = state.selections;
+      if (!dusunce && !duygu && !davranis) {
+        if (!silent) showToast('En az bir kart seç');
+        return;
+      }
+      const answer = {
+        dusunce: dusunce ? findCard(DUSUNCE, dusunce) : null,
+        duygu: duygu ? findCard(DUYGU, duygu) : null,
+        davranis: davranis ? findCard(DAVRANIS, davranis) : null
+      };
+      state.answers[state.playerName] = answer;
+      const me = state.players.find(p => p.name === state.playerName);
+      if (me) me.submitted = true;
+
+      document.getElementById('btn-submit').disabled = true;
+      document.getElementById('btn-submit').textContent = '✓ Gönderildi';
+      document.querySelectorAll('.choice-card').forEach(c => c.classList.add('disabled'));
+      updateSubmitStatus();
+      if (!silent) showToast('Cevabın gönderildi!');
+
+      if (state.roomCode === 'SOLO') {
+        if (allSubmitted()) setTimeout(() => revealRound(), 400);
+        return;
+      }
+
+      ensureSocket().emit('submit-answer', { answer }, (res) => {
+        if (res && !res.ok) showToast(res.error || 'Gönderilemedi');
+      });
+    }
+
+    function revealRound() {
+      if (state.phase === 'revealed') return;
+      state.phase = 'revealed';
+      stopTimer();
+      if (state.isHost || state.roomCode === 'SOLO') {
+        scoreRound();
+      }
+      if (state.roomCode === 'SOLO') {
+        showResults();
+        updateGameUI();
+        return;
+      }
+      if (state.isHost) {
+        ensureSocket().emit('reveal-round', {
+          answers: state.answers,
+          players: state.players,
+          lastRoundScores: state.lastRoundScores
+        });
+      }
+      // round-revealed event will update UI for non-hosts; host updates locally
+      showResults();
+      updateGameUI();
+    }
+
+    function showResults() {
+      const list = document.getElementById('responses-list');
+      const names = Object.keys(state.answers);
+      const corr = state.currentCard && state.currentCard.correct;
+
+      let correctHtml = '';
+      if (corr) {
+        const d = findCard(DUSUNCE, corr.dusunce);
+        const e = findCard(DUYGU, corr.duygu);
+        const b = findCard(DAVRANIS, corr.davranis);
+        correctHtml = `
+          <div style="background:#F0FFF4;border-radius:12px;padding:12px 14px;margin-bottom:14px;border:1px solid #9AE6B4;">
+            <div style="font-weight:700;color:#276749;margin-bottom:6px;">✅ Örnek Empatik Cevap (Puanlama Referansı)</div>
+            <div class="response-pills">
+              ${d ? `<span class="pill pill-dusunce">🧠 ${d.text}</span>` : ''}
+              ${e ? `<span class="pill pill-duygu">❤️ ${e.text}</span>` : ''}
+              ${b ? `<span class="pill pill-davranis">🤝 ${b.text}</span>` : ''}
+            </div>
+          </div>`;
+      }
+
+      if (names.length === 0) {
+        list.innerHTML = correctHtml + '<p style="color:var(--muted)">Kimse cevap göndermedi.</p>';
+      } else {
+        const sortedNames = names.slice().sort((a,b) => {
+          const ma = (state.lastRoundScores[a]||{}).matches || 0;
+          const mb = (state.lastRoundScores[b]||{}).matches || 0;
+          return mb - ma;
+        });
+        list.innerHTML = correctHtml + sortedNames.map(name => {
+          const a = state.answers[name];
+          const rs = state.lastRoundScores[name] || { matches: 0, points: 0 };
+          const p = state.players.find(x => x.name === name);
+          const total = p ? (p.score || 0) : 0;
+          const pills = [];
+          if (a.dusunce) {
+            const ok = corr && a.dusunce.id === corr.dusunce;
+            pills.push(`<span class="pill pill-dusunce">${ok?'✓ ':''}🧠 ${a.dusunce.text}</span>`);
+          }
+          if (a.duygu) {
+            const ok = corr && a.duygu.id === corr.duygu;
+            pills.push(`<span class="pill pill-duygu">${ok?'✓ ':''}❤️ ${a.duygu.text}</span>`);
+          }
+          if (a.davranis) {
+            const ok = corr && a.davranis.id === corr.davranis;
+            pills.push(`<span class="pill pill-davranis">${ok?'✓ ':''}🤝 ${a.davranis.text}</span>`);
+          }
+          const ptsColor = rs.points > 0 ? '#276749' : (rs.points < 0 ? '#C53030' : 'var(--muted)');
+          return `<div class="response-item">
+            <div class="who" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+              <span>${name}${name === state.playerName ? ' (Sen)' : ''}</span>
+              <span style="font-size:0.9rem;">
+                <strong style="color:${ptsColor};">${rs.points > 0 ? '+' : ''}${rs.points} puan</strong>
+                <span style="color:var(--muted);"> (${rs.matches}/3 doğru) · Toplam: ${total}p</span>
+              </span>
+            </div>
+            <div class="response-pills">${pills.join('') || '<span style="color:var(--muted)">Seçim yok</span>'}</div>
+          </div>`;
+        }).join('');
+      }
+
+      // Puan tablosu
+      const board = [...state.players].sort((a,b)=>(b.score||0)-(a.score||0));
+      list.innerHTML += `
+        <div style="margin-top:16px;padding-top:12px;border-top:1px dashed #E2E8F0;">
+          <div style="font-weight:700;margin-bottom:8px;">🏆 Puan Tablosu</div>
+          <div class="players-list">
+            ${board.map((p,i) => `
+              <div class="player-chip ${p.name===state.playerName?'me':''} ${p.isHost?'host':''}">
+                ${i===0?'🥇 ':''}${p.name}: <strong>${p.score||0}</strong>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+
+      document.getElementById('selection-area').style.display = 'none';
+      document.getElementById('responses-area').style.display = 'block';
+      document.getElementById('timer-bar').style.display = 'none';
+    }
+
+    function copyCode() {
+      navigator.clipboard.writeText(state.roomCode).then(() => showToast('Kod kopyalandı!'));
+    }
+    function openVideoModal() { document.getElementById('modal-video').classList.add('open'); }
+    function closeModals() { document.querySelectorAll('.modal-overlay').forEach(m => m.classList.remove('open')); }
+    document.querySelectorAll('.modal-overlay').forEach(m => {
+      m.addEventListener('click', e => { if (e.target === m) closeModals(); });
+    });
+  </script>
+</body>
+</html>
