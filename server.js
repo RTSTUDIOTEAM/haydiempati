@@ -1,241 +1,365 @@
 /**
- * Haydi Empati — Socket.io Sunucu
+ * Haydi Empati — Socket.io Sunucu (Node 12 uyumlu)
  * Çalıştırma: npm install && npm start
  * Tarayıcı: http://localhost:3000
  */
 
-const express = require('express');
-const http = require('http');
-const { Server } = require('socket.io');
-const path = require('path');
+var express = require('express');
+var http = require('http');
+var socketIo = require('socket.io');
+var path = require('path');
 
-const app = express();
-const server = http.createServer(app);
-const io = new Server(server, {
+var app = express();
+var server = http.createServer(app);
+var io = socketIo(server, {
   cors: { origin: '*' }
 });
 
-const PORT = process.env.PORT || 3000;
+var PORT = process.env.PORT || 3000;
 
-// Statik dosyalar (client)
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ========== ODA DEPOSU ==========
-// rooms[code] = {
-//   code, hostId,
-//   players: { [socketId]: { id, name, isHost, score, submitted } },
-//   currentCard, usedCards, phase, timerEnd, answers, lastRoundScores
-// }
-const rooms = {};
+var rooms = {};
+var COLORS = ['#E53E3E', '#D69E2E', '#38A169', '#3182CE']; // Kırmızı Sarı Yeşil Mavi
 
 function generateCode() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
+  var chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  var code = '';
+  for (var i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)];
   return code;
 }
 
+function reply(cb, data) {
+  if (typeof cb === 'function') cb(data);
+}
+
+function assignColor(room) {
+  var used = {};
+  Object.keys(room.players).forEach(function (id) {
+    var c = room.players[id].color;
+    if (c) used[c] = true;
+  });
+  for (var i = 0; i < COLORS.length; i++) {
+    if (!used[COLORS[i]]) return COLORS[i];
+  }
+  return COLORS[0];
+}
+
 function getRoomPublicState(room) {
-  const players = Object.values(room.players).map(p => ({
-    id: p.id,
-    name: p.name,
-    isHost: p.isHost,
-    score: p.score || 0,
-    submitted: !!p.submitted,
-    ready: !!p.ready
-  }));
-  const allReady = players.length > 0 && players.every(p => p.ready);
+  var players = Object.keys(room.players).map(function (id) {
+    var p = room.players[id];
+    return {
+      id: p.id,
+      name: p.name,
+      isHost: p.isHost,
+      score: p.score || 0,
+      submitted: !!p.submitted,
+      ready: !!p.ready,
+      color: p.color || '#718096',
+      position: p.position || 0,
+      hasPass: !!p.hasPass
+    };
+  });
+  var allReady = players.length > 0 && players.every(function (p) { return p.ready; });
   return {
     code: room.code,
-    players,
-    allReady,
+    players: players,
+    allReady: allReady,
     currentCard: room.currentCard,
     usedCards: room.usedCards || [],
     phase: room.phase || 'idle',
     timerEnd: room.timerEnd || 0,
     answers: room.answers || {},
-    lastRoundScores: room.lastRoundScores || {}
+    lastRoundScores: room.lastRoundScores || {},
+    videoClosedCount: room.videoClosedCount || 0
   };
 }
 
 function broadcastRoom(code) {
-  const room = rooms[code];
+  var room = rooms[code];
   if (!room) return;
   io.to(code).emit('room-state', getRoomPublicState(room));
 }
 
-// ========== SOCKET ==========
-io.on('connection', (socket) => {
-  console.log('[+] Bağlandı:', socket.id);
+function attachPlayer(socket, code, name) {
+  code = (code || '').toString().trim().toUpperCase();
+  name = (name || '').toString().trim().slice(0, 18);
+  if (!code || !rooms[code]) return null;
+  var room = rooms[code];
 
-  // --- Oda oluştur ---
-  socket.on('create-room', ({ name }, cb) => {
-    name = (name || '').trim().slice(0, 18);
-    if (!name) return cb?.({ ok: false, error: 'İsim gerekli' });
+  // Zaten bağlıysa
+  if (room.players[socket.id]) {
+    socket.data.roomCode = code;
+    socket.data.playerName = room.players[socket.id].name;
+    return room.players[socket.id];
+  }
 
-    let code;
+  // İsimle yeniden bağlanma (cihaz değişimi / yenileme)
+  var existingId = null;
+  Object.keys(room.players).forEach(function (id) {
+    if (room.players[id].name.toLowerCase() === name.toLowerCase()) existingId = id;
+  });
+
+  if (existingId) {
+    var old = room.players[existingId];
+    delete room.players[existingId];
+    old.id = socket.id;
+    room.players[socket.id] = old;
+    if (room.hostId === existingId) room.hostId = socket.id;
+    socket.join(code);
+    socket.data.roomCode = code;
+    socket.data.playerName = old.name;
+    return old;
+  }
+
+  // Yeni oyuncu
+  if (Object.keys(room.players).length >= 4) return null;
+
+  room.players[socket.id] = {
+    id: socket.id,
+    name: name,
+    isHost: false,
+    score: 0,
+    submitted: false,
+    ready: false,
+    color: assignColor(room),
+    position: 0,
+    hasPass: false
+  };
+  Object.keys(room.players).forEach(function (id) {
+    room.players[id].ready = false;
+  });
+
+  socket.join(code);
+  socket.data.roomCode = code;
+  socket.data.playerName = name;
+  return room.players[socket.id];
+}
+
+io.on('connection', function (socket) {
+  console.log('[+] Baglandi:', socket.id);
+
+  // --- Oda olustur ---
+  socket.on('create-room', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var name = ((payload && payload.name) || '').trim().slice(0, 18);
+    if (!name) return reply(cb, { ok: false, error: 'Isim gerekli' });
+
+    var code;
     do { code = generateCode(); } while (rooms[code]);
 
     rooms[code] = {
-      code,
+      code: code,
       hostId: socket.id,
-      players: {
-        [socket.id]: { id: socket.id, name, isHost: true, score: 0, submitted: false, ready: false }
-      },
+      players: {},
       currentCard: null,
       usedCards: [],
       phase: 'idle',
       timerEnd: 0,
       answers: {},
-      lastRoundScores: {}
+      lastRoundScores: {},
+      videoClosedCount: 0
+    };
+    rooms[code].players[socket.id] = {
+      id: socket.id,
+      name: name,
+      isHost: true,
+      score: 0,
+      submitted: false,
+      ready: false,
+      color: COLORS[0],
+      position: 0,
+      hasPass: false
     };
 
     socket.join(code);
     socket.data.roomCode = code;
     socket.data.playerName = name;
 
-    console.log(`[Oda] Oluşturuldu: ${code} (host: ${name})`);
-    cb?.({ ok: true, code, state: getRoomPublicState(rooms[code]) });
+    console.log('[Oda] Olusturuldu: ' + code + ' (host: ' + name + ')');
+    reply(cb, { ok: true, code: code, state: getRoomPublicState(rooms[code]) });
   });
 
-  // --- Odaya katıl ---
-  socket.on('join-room', ({ code, name }, cb) => {
-    code = (code || '').trim().toUpperCase();
-    name = (name || '').trim().slice(0, 18);
-    if (!name) return cb?.({ ok: false, error: 'İsim gerekli' });
-    if (!code || !rooms[code]) return cb?.({ ok: false, error: 'Oda bulunamadı' });
+  // --- Odaya katil ---
+  socket.on('join-room', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = ((payload && payload.code) || '').trim().toUpperCase();
+    var name = ((payload && payload.name) || '').trim().slice(0, 18);
+    if (!name) return reply(cb, { ok: false, error: 'Isim gerekli' });
+    if (!code || !rooms[code]) return reply(cb, { ok: false, error: 'Oda bulunamadi' });
 
-    const room = rooms[code];
-    // Aynı isim varsa engelle (basit)
-    const nameTaken = Object.values(room.players).some(p => p.name.toLowerCase() === name.toLowerCase());
-    if (nameTaken) return cb?.({ ok: false, error: 'Bu isim odada kullanılıyor' });
+    var room = rooms[code];
+    var nameTaken = Object.keys(room.players).some(function (id) {
+      return room.players[id].name.toLowerCase() === name.toLowerCase();
+    });
+    if (nameTaken) return reply(cb, { ok: false, error: 'Bu isim odada kullaniliyor' });
+
+    if (Object.keys(room.players).length >= 4) {
+      return reply(cb, { ok: false, error: 'Oda dolu (maks 4 kisi)' });
+    }
 
     room.players[socket.id] = {
       id: socket.id,
-      name,
+      name: name,
       isHost: false,
       score: 0,
       submitted: false,
-      ready: false
+      ready: false,
+      color: assignColor(room),
+      position: 0,
+      hasPass: false
     };
-    // Yeni oyuncu gelince herkesin hazırını sıfırla
-    Object.values(room.players).forEach(p => { p.ready = false; });
+    Object.keys(room.players).forEach(function (id) {
+      room.players[id].ready = false;
+    });
 
     socket.join(code);
     socket.data.roomCode = code;
     socket.data.playerName = name;
 
-    console.log(`[Oda] ${name} katıldı → ${code}`);
+    console.log('[Oda] ' + name + ' katildi -> ' + code);
     broadcastRoom(code);
-    cb?.({ ok: true, code, state: getRoomPublicState(room) });
+    reply(cb, { ok: true, code: code, state: getRoomPublicState(room) });
   });
 
-  // --- Hazır / hazır değil ---
-  socket.on('toggle-ready', (cb) => {
-    const code = socket.data.roomCode;
-    const room = rooms[code];
-    if (!room) return cb?.({ ok: false, error: 'Oda yok' });
-    const player = room.players[socket.id];
-    if (!player) return cb?.({ ok: false, error: 'Oyuncu bulunamadı' });
+  // --- Yeniden baglan ---
+  socket.on('rejoin-room', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = (payload && payload.code) || '';
+    var name = (payload && payload.name) || '';
+    var player = attachPlayer(socket, code, name);
+    if (!player) return reply(cb, { ok: false, error: 'Oda yok' });
+    var room = rooms[socket.data.roomCode];
+    broadcastRoom(room.code);
+    reply(cb, { ok: true, code: room.code, state: getRoomPublicState(room) });
+  });
+
+  // --- Hazir / hazir degil ---
+  socket.on('toggle-ready', function (payload, cb) {
+    if (typeof payload === 'function') {
+      cb = payload;
+      payload = {};
+    }
+    var code = (payload && payload.code) || (socket.data && socket.data.roomCode);
+    var name = (payload && payload.name) || (socket.data && socket.data.playerName);
+    var player = attachPlayer(socket, code, name);
+    if (!player) return reply(cb, { ok: false, error: 'Oda yok' });
+    var room = rooms[socket.data.roomCode];
 
     player.ready = !player.ready;
-    broadcastRoom(code);
-    cb?.({ ok: true, ready: player.ready, state: getRoomPublicState(room) });
+    broadcastRoom(room.code);
+    reply(cb, { ok: true, ready: player.ready, state: getRoomPublicState(room) });
   });
 
-  // --- Oyunu başlat (sadece host, herkes hazır olmalı) ---
-  socket.on('start-game', (cb) => {
-    const code = socket.data.roomCode;
-    const room = rooms[code];
-    if (!room) return cb?.({ ok: false, error: 'Oda yok' });
-    if (room.hostId !== socket.id) return cb?.({ ok: false, error: 'Sadece host başlatabilir' });
+  // --- Oyunu baslat ---
+  socket.on('start-game', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = (payload && payload.code) || (socket.data && socket.data.roomCode);
+    var room = rooms[code];
+    if (!room) return reply(cb, { ok: false, error: 'Oda yok' });
+    if (room.hostId !== socket.id) return reply(cb, { ok: false, error: 'Sadece host baslatabilir' });
 
-    const players = Object.values(room.players);
-    if (players.length < 1) return cb?.({ ok: false, error: 'Oyuncu yok' });
-    if (!players.every(p => p.ready)) {
-      return cb?.({ ok: false, error: 'Herkes hazır olmalı' });
+    var players = Object.keys(room.players).map(function (id) { return room.players[id]; });
+    if (players.length < 1) return reply(cb, { ok: false, error: 'Oyuncu yok' });
+    if (!players.every(function (p) { return p.ready; })) {
+      return reply(cb, { ok: false, error: 'Herkes hazir olmali' });
     }
 
     room.phase = 'idle';
     room.currentCard = null;
     room.answers = {};
     room.timerEnd = 0;
-    Object.values(room.players).forEach(p => {
-      p.submitted = false;
-      p.ready = false;
+    room.videoClosedCount = 0;
+    Object.keys(room.players).forEach(function (id) {
+      room.players[id].submitted = false;
+      room.players[id].ready = false;
     });
 
     io.to(code).emit('game-started', getRoomPublicState(room));
-    cb?.({ ok: true });
+    reply(cb, { ok: true });
   });
 
-  // --- Yeni kart çek (host) ---
-  socket.on('draw-card', ({ card, usedCards, timerEnd }, cb) => {
-    const code = socket.data.roomCode;
-    const room = rooms[code];
-    if (!room) return cb?.({ ok: false, error: 'Oda yok' });
-    if (room.hostId !== socket.id) return cb?.({ ok: false, error: 'Sadece host kart çekebilir' });
+  // --- Yeni kart cek ---
+  socket.on('draw-card', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = (payload && payload.code) || (socket.data && socket.data.roomCode);
+    var room = rooms[code];
+    if (!room) return reply(cb, { ok: false, error: 'Oda yok' });
+    if (room.hostId !== socket.id) return reply(cb, { ok: false, error: 'Sadece host kart cekebilir' });
 
-    room.currentCard = card;
-    room.usedCards = usedCards || room.usedCards;
+    room.currentCard = payload.card || null;
+    room.usedCards = payload.usedCards || room.usedCards;
     room.phase = 'selecting';
-    room.timerEnd = timerEnd;
+    room.timerEnd = payload.timerEnd || 0;
     room.answers = {};
     room.lastRoundScores = {};
-    Object.values(room.players).forEach(p => { p.submitted = false; });
+    room.videoClosedCount = 0;
+    Object.keys(room.players).forEach(function (id) {
+      room.players[id].submitted = false;
+    });
 
     io.to(code).emit('round-start', {
       card: room.currentCard,
       timerEnd: room.timerEnd,
       state: getRoomPublicState(room)
     });
-    cb?.({ ok: true });
+    reply(cb, { ok: true });
   });
 
-  // --- Cevap gönder ---
-  socket.on('submit-answer', ({ answer }, cb) => {
-    const code = socket.data.roomCode;
-    const room = rooms[code];
-    if (!room) return cb?.({ ok: false, error: 'Oda yok' });
-    if (room.phase !== 'selecting') return cb?.({ ok: false, error: 'Şu an cevap kabul edilmiyor' });
+  // --- Cevap gonder ---
+  socket.on('submit-answer', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = (payload && payload.roomCode) || (socket.data && socket.data.roomCode);
+    var room = rooms[code];
+    if (!room) return reply(cb, { ok: false, error: 'Oda yok' });
+    if (room.phase !== 'selecting') return reply(cb, { ok: false, error: 'Su an cevap kabul edilmiyor' });
 
-    const player = room.players[socket.id];
-    if (!player) return cb?.({ ok: false, error: 'Oyuncu bulunamadı' });
+    var player = room.players[socket.id];
+    if (!player) return reply(cb, { ok: false, error: 'Oyuncu bulunamadi' });
 
-    room.answers[player.name] = answer;
+    room.answers[player.name] = payload.answer;
     player.submitted = true;
 
     io.to(code).emit('answer-received', {
       name: player.name,
-      answer,
+      answer: payload.answer,
       state: getRoomPublicState(room)
     });
 
-    // Herkes gönderdiyse host'a haber ver (istemci de kontrol eder)
-    const allDone = Object.values(room.players).every(p => p.submitted);
+    var allDone = Object.keys(room.players).every(function (id) {
+      return room.players[id].submitted;
+    });
     if (allDone) {
       io.to(code).emit('all-submitted', { state: getRoomPublicState(room) });
     }
 
-    cb?.({ ok: true });
+    reply(cb, { ok: true });
   });
 
-  // --- Turu aç / puanla (host) ---
-  socket.on('reveal-round', ({ players, lastRoundScores, answers }, cb) => {
-    const code = socket.data.roomCode;
-    const room = rooms[code];
-    if (!room) return cb?.({ ok: false, error: 'Oda yok' });
-    if (room.hostId !== socket.id) return cb?.({ ok: false, error: 'Sadece host açabilir' });
+  // --- Turu ac / puanla ---
+  socket.on('reveal-round', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = (payload && payload.code) || (socket.data && socket.data.roomCode);
+    var room = rooms[code];
+    if (!room) return reply(cb, { ok: false, error: 'Oda yok' });
+    if (room.hostId !== socket.id) return reply(cb, { ok: false, error: 'Sadece host acabilir' });
 
-    // Host'tan gelen güncel skorları uygula
-    if (players) {
-      players.forEach(up => {
-        const local = Object.values(room.players).find(p => p.name === up.name);
-        if (local) local.score = up.score ?? local.score;
+    if (payload.players) {
+      payload.players.forEach(function (up) {
+        var local = null;
+        Object.keys(room.players).forEach(function (id) {
+          if (room.players[id].name === up.name) local = room.players[id];
+        });
+        if (local) {
+          local.score = (up.score != null) ? up.score : local.score;
+          if (up.position != null) local.position = up.position;
+          if (up.hasPass != null) local.hasPass = up.hasPass;
+        }
       });
     }
-    room.answers = answers || room.answers;
-    room.lastRoundScores = lastRoundScores || {};
+    room.answers = payload.answers || room.answers;
+    room.lastRoundScores = payload.lastRoundScores || {};
     room.phase = 'revealed';
     room.timerEnd = 0;
 
@@ -244,58 +368,80 @@ io.on('connection', (socket) => {
       lastRoundScores: room.lastRoundScores,
       state: getRoomPublicState(room)
     });
-    cb?.({ ok: true });
+    reply(cb, { ok: true });
+  });
+
+  // --- Video kapandi (senkron) ---
+  socket.on('video-closed', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = (payload && payload.code) || (socket.data && socket.data.roomCode);
+    var room = rooms[code];
+    if (!room) return reply(cb, { ok: false, error: 'Oda yok' });
+
+    room.videoClosedCount = (room.videoClosedCount || 0) + 1;
+    var total = Object.keys(room.players).length;
+
+    io.to(code).emit('video-closed-update', {
+      count: room.videoClosedCount,
+      total: total,
+      state: getRoomPublicState(room)
+    });
+
+    if (room.videoClosedCount >= total) {
+      io.to(code).emit('all-videos-closed', { state: getRoomPublicState(room) });
+    }
+    reply(cb, { ok: true });
   });
 
   // --- Durum iste ---
-  socket.on('request-state', (cb) => {
-    const code = socket.data.roomCode;
-    const room = rooms[code];
-    if (!room) return cb?.({ ok: false });
-    cb?.({ ok: true, state: getRoomPublicState(room) });
+  socket.on('request-state', function (payload, cb) {
+    if (typeof payload === 'function') { cb = payload; payload = {}; }
+    var code = (payload && payload.code) || (socket.data && socket.data.roomCode);
+    var room = rooms[code];
+    if (!room) return reply(cb, { ok: false });
+    reply(cb, { ok: true, state: getRoomPublicState(room) });
   });
 
-  // --- Ayrıl / bağlantı kopması ---
+  // --- Ayril / baglanti kopmasi ---
   function leaveRoom() {
-    const code = socket.data.roomCode;
+    var code = socket.data && socket.data.roomCode;
     if (!code || !rooms[code]) return;
-    const room = rooms[code];
-    const name = room.players[socket.id]?.name;
+    var room = rooms[code];
+    var name = room.players[socket.id] ? room.players[socket.id].name : null;
 
     delete room.players[socket.id];
     socket.leave(code);
     socket.data.roomCode = null;
 
-    // Oda boşaldıysa sil
     if (Object.keys(room.players).length === 0) {
       delete rooms[code];
-      console.log(`[Oda] Silindi (boş): ${code}`);
+      console.log('[Oda] Silindi (bos): ' + code);
       return;
     }
 
-    // Host gittiyse yeni host ata
     if (room.hostId === socket.id) {
-      const next = Object.values(room.players)[0];
+      var nextId = Object.keys(room.players)[0];
+      var next = room.players[nextId];
       room.hostId = next.id;
       next.isHost = true;
-      console.log(`[Oda] Yeni host: ${next.name} → ${code}`);
+      console.log('[Oda] Yeni host: ' + next.name + ' -> ' + code);
     }
 
-    console.log(`[Oda] ${name || '?'} ayrıldı → ${code}`);
+    console.log('[Oda] ' + (name || '?') + ' ayrildi -> ' + code);
     io.to(code).emit('player-left', {
-      name,
+      name: name,
       state: getRoomPublicState(room)
     });
   }
 
-  socket.on('leave-room', () => leaveRoom());
-  socket.on('disconnect', () => {
+  socket.on('leave-room', function () { leaveRoom(); });
+  socket.on('disconnect', function () {
     leaveRoom();
-    console.log('[-] Ayrıldı:', socket.id);
+    console.log('[-] Ayrildi:', socket.id);
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`\n🎮 Haydi Empati sunucusu çalışıyor`);
-  console.log(`   → http://localhost:${PORT}\n`);
+server.listen(PORT, function () {
+  console.log('\nHaydi Empati sunucusu calisiyor');
+  console.log('   -> http://localhost:' + PORT + '\n');
 });
